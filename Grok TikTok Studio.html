@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Grok TikTok Studio — Générateur de vidéos verticales</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+        --bg: #0a0a0a; --panel: #151515; --panel-2: #1a1a1a; --border: #2a2a2a;
+        --ink: #e0e0e0; --ink-dim: #888; --ink-faint: #555;
+        --success: #4ade80; --error: #f87171; --warn: #facc15; --info: #60a5fa;
+        --tiktok-pink: #fe2c55; --tiktok-cyan: #25f4ee;
+        --radius: 14px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background: var(--bg); color: var(--ink); min-height: 100vh;
+        padding: 1.5rem 1rem 6rem; font-size: 15px; line-height: 1.5;
+        max-width: 900px; margin: 0 auto;
+    }
+    header { margin-bottom: 1.5rem; text-align: center; }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.3rem;
+        background: linear-gradient(90deg, var(--tiktok-pink), var(--tiktok-cyan));
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .subtitle { font-size: 0.8rem; color: var(--ink-dim); font-style: italic; }
+
+    .toast {
+        position: fixed; top: 1.5rem; left: 50%;
+        transform: translateX(-50%) translateY(-100px);
+        background: var(--ink); color: #0a0a0a;
+        padding: 0.85rem 1.4rem; border-radius: 10px;
+        font-size: 0.85rem; font-weight: 600;
+        z-index: 1000; opacity: 0;
+        transition: transform 0.35s ease, opacity 0.35s ease;
+        max-width: 90vw; text-align: center;
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--error); color: #fff; }
+    .toast.warn { background: var(--warn); }
+
+    .info-banner {
+        background: #1a1a2e; border-left: 3px solid var(--tiktok-pink);
+        padding: 0.75rem 0.95rem; border-radius: 8px;
+        font-size: 0.78rem; color: #ccc;
+        margin-bottom: 1rem; line-height: 1.45;
+    }
+    .info-banner strong { color: #fff; }
+
+    .section {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); margin-bottom: 1rem;
+        overflow: hidden;
+    }
+    .section-header {
+        padding: 0.9rem 1.1rem; cursor: pointer; user-select: none;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .section-header:active { background: var(--panel-2); }
+    .section-title {
+        font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
+        color: var(--ink-dim); font-weight: 600;
+    }
+    .section-title .badge {
+        display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.4rem;
+        background: var(--tiktok-pink); color: #fff; border-radius: 10px;
+        font-size: 0.65rem; letter-spacing: 0;
+    }
+    .section-header .chevron {
+        font-size: 0.7rem; color: var(--ink-faint); transition: transform 0.2s;
+    }
+    .section.open .section-header .chevron { transform: rotate(180deg); }
+    .section-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .section.open .section-body { max-height: 5000px; }
+    .section-content { padding: 0 1.1rem 1.1rem; }
+
+    .api-panel {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 1rem 1.2rem;
+        margin-bottom: 1rem; transition: border-color 0.3s;
+    }
+    .api-panel.ok { border-color: var(--success); }
+
+    .api-key-input {
+        width: 100%; padding: 0.85rem 1rem;
+        border-radius: 8px; border: 1px solid var(--border);
+        background: #0f0f0f; color: var(--ink);
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 0.85rem; margin-bottom: 0.6rem;
+    }
+    .api-key-input:focus { outline: none; border-color: var(--ink); }
+
+    .api-save-btn {
+        width: 100%; padding: 0.8rem 1.2rem;
+        border-radius: 8px; border: none;
+        background: var(--ink); color: #0a0a0a;
+        font-size: 0.9rem; font-weight: 600; font-family: inherit;
+        cursor: pointer; margin-bottom: 0.6rem;
+    }
+    .api-save-btn:active { transform: scale(0.98); }
+
+    .api-status-line {
+        font-size: 0.75rem; padding: 0.55rem 0.85rem;
+        border-radius: 6px; margin-bottom: 0.5rem;
+        display: flex; align-items: center; gap: 0.5rem;
+        background: var(--panel-2); color: var(--ink-dim);
+    }
+    .api-status-line.ok {
+        background: #1a2a1a; color: var(--success); font-weight: 600;
+    }
+    .api-status-line .status-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--ink-faint); flex-shrink: 0;
+    }
+    .api-status-line.ok .status-dot { background: var(--success); }
+
+    .api-hint { font-size: 0.72rem; color: var(--ink-dim); margin-top: 0.4rem; }
+    .api-hint a { color: var(--tiktok-cyan); text-decoration: underline; }
+
+    .wake-status {
+        font-size: 0.72rem; padding: 0.5rem 0.7rem;
+        border-radius: 6px; margin-top: 0.4rem;
+        display: flex; justify-content: space-between; align-items: center;
+        background: #1a1a2e; color: var(--info);
+        flex-wrap: wrap; gap: 0.4rem;
+    }
+    .wake-status.active { background: #1a2a1a; color: var(--success); }
+    .wake-status button {
+        background: transparent; border: 1px solid currentColor;
+        color: inherit; padding: 0.25rem 0.6rem; border-radius: 6px;
+        font-size: 0.68rem; cursor: pointer; font-family: inherit;
+    }
+
+    .combo-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.5rem; margin-bottom: 0.5rem;
+    }
+    .combo-card {
+        padding: 0.7rem 0.8rem; border-radius: 10px;
+        border: 1px solid var(--border); background: var(--panel-2);
+        cursor: pointer; transition: all 0.15s; text-align: left;
+    }
+    .combo-card:active { transform: scale(0.98); }
+    .combo-card.selected { border-color: var(--tiktok-pink); background: #1a0a12; }
+    .combo-card .combo-emoji { font-size: 1.2rem; }
+    .combo-card .combo-name { font-size: 0.78rem; font-weight: 600; margin-top: 0.2rem; }
+    .combo-card .combo-desc { font-size: 0.65rem; color: var(--ink-dim); margin-top: 0.1rem; }
+
+    .chip-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .chip {
+        padding: 0.4rem 0.75rem; border-radius: 18px; border: 1px solid var(--border);
+        background: var(--panel-2); font-size: 0.76rem; cursor: pointer;
+        transition: all 0.15s; user-select: none;
+    }
+    .chip:active { transform: scale(0.96); }
+    .chip.selected { background: var(--ink); color: #0a0a0a; border-color: var(--ink); }
+
+    .chip-group-label {
+        font-size: 0.7rem; font-weight: 600;
+        color: var(--ink-dim); text-transform: uppercase;
+        letter-spacing: 0.06em; margin-top: 0.8rem; margin-bottom: 0.35rem;
+    }
+    .chip-group-label:first-child { margin-top: 0; }
+
+    .control-row { margin-bottom: 0.9rem; }
+    .control-label {
+        display: block; font-size: 0.7rem; color: var(--ink-dim);
+        margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.06em;
+        font-weight: 600;
+    }
+    select, input[type="text"], input[type="number"] {
+        width: 100%; padding: 0.7rem 0.9rem; border-radius: 8px;
+        border: 1px solid var(--border); background: #0f0f0f;
+        color: var(--ink); font-family: inherit; font-size: 0.88rem;
+        -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23888' d='M0 0l5 6 5-6z'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 0.9rem center;
+        background-size: 10px;
+    }
+    input[type="text"], input[type="number"] { background-image: none; }
+    select:focus, input:focus { outline: none; border-color: var(--ink); }
+
+    textarea {
+        width: 100%; padding: 0.75rem 0.9rem; border-radius: 8px;
+        border: 1px solid var(--border); background: #0f0f0f;
+        color: var(--ink); font-family: inherit; font-size: 0.88rem;
+        min-height: 70px; resize: vertical; line-height: 1.5;
+    }
+    textarea:focus { outline: none; border-color: var(--ink); }
+
+    .prompt-preview {
+        background: #0a0a0a; color: #e0e0e0;
+        border-radius: 10px; padding: 1rem;
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 0.72rem; line-height: 1.6;
+        max-height: 300px; overflow-y: auto;
+        white-space: pre-wrap; word-break: break-word;
+        border: 1px solid var(--border);
+    }
+    .prompt-preview .prompt-label {
+        color: var(--tiktok-cyan); font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.08em;
+        font-size: 0.65rem; display: block; margin-bottom: 0.2rem;
+    }
+    .prompt-preview .prompt-section { margin-bottom: 0.6rem; }
+
+    .prompt-tabs { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+    .prompt-tab {
+        padding: 0.35rem 0.7rem; border-radius: 6px;
+        border: 1px solid var(--border); background: var(--panel-2);
+        font-size: 0.72rem; cursor: pointer; font-family: inherit;
+        color: var(--ink-dim);
+    }
+    .prompt-tab.active { background: var(--ink); color: #0a0a0a; border-color: var(--ink); }
+
+    .btn-primary {
+        width: 100%; padding: 1.1rem; border-radius: var(--radius);
+        border: none; background: linear-gradient(90deg, var(--tiktok-pink), var(--tiktok-cyan));
+        color: #fff; font-size: 1rem; font-weight: 700;
+        font-family: inherit; cursor: pointer; margin-bottom: 1rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .btn-stop {
+        width: 100%; padding: 0.8rem; border-radius: var(--radius);
+        border: 1px solid var(--border); background: var(--panel);
+        color: var(--error); font-size: 0.85rem; font-weight: 600;
+        font-family: inherit; cursor: pointer; margin-bottom: 1rem;
+        display: none;
+    }
+    .btn-stop.visible { display: block; }
+
+    .queue { margin-top: 1rem; }
+    .queue-summary {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 8px; padding: 0.7rem 0.9rem; margin-bottom: 0.6rem;
+        font-size: 0.78rem; display: flex; justify-content: space-between;
+        align-items: center; flex-wrap: wrap; gap: 0.4rem;
+    }
+    .queue-summary .progress-text { color: var(--ink); font-weight: 600; }
+    .queue-summary .eta-text { color: var(--ink-dim); }
+
+    .queue-item {
+        display: flex; align-items: center; gap: 0.8rem;
+        padding: 0.7rem 0.8rem; border-radius: 8px;
+        border: 1px solid var(--border); margin-bottom: 0.4rem;
+        background: var(--panel); font-size: 0.82rem;
+    }
+    .queue-item.pending { opacity: 0.5; }
+    .queue-item.creating { border-color: var(--warn); }
+    .queue-item.processing { border-color: var(--ink); }
+    .queue-item.done { border-color: var(--success); }
+    .queue-item.failed { border-color: var(--error); }
+    .queue-item .q-icon { font-size: 1rem; width: 1.5rem; text-align: center; flex-shrink: 0; }
+    .queue-item .q-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .queue-item .q-status { font-size: 0.72rem; color: var(--ink-dim); text-align: right; flex-shrink: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .gallery { margin-top: 1.5rem; }
+    .gallery-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.8rem;
+    }
+    .gallery-item {
+        border-radius: var(--radius); overflow: hidden;
+        border: 1px solid var(--border); background: #000;
+        animation: fadeIn 0.4s ease;
+    }
+    .gallery-item video { width: 100%; display: block; aspect-ratio: 9/16; object-fit: cover; }
+    .gallery-item .g-caption {
+        padding: 0.4rem 0.6rem; background: var(--panel);
+        font-size: 0.7rem; color: var(--ink-dim);
+    }
+
+    .status-bar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: #1a1a1a; color: #fff; padding: 0.7rem 1rem;
+        font-size: 0.78rem; display: flex; align-items: center; gap: 0.6rem;
+        transform: translateY(100%); transition: transform 0.3s;
+        z-index: 100; border-top: 1px solid var(--border);
+    }
+    .status-bar.visible { transform: translateY(0); }
+    .status-bar .spinner {
+        width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: #fff; border-radius: 50%;
+        animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    #noSleepCanvas { position: fixed; top: 0; left: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; z-index: -1; }
+    #noSleepVideo { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
+
+    .variant-row {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.5rem; margin-top: 0.5rem;
+    }
+    .variant-checkbox {
+        display: flex; align-items: center; gap: 0.5rem;
+        padding: 0.6rem 0.8rem; border-radius: 8px;
+        border: 1px solid var(--border); background: var(--panel-2);
+        font-size: 0.78rem; cursor: pointer;
+    }
+    .variant-checkbox input { accent-color: var(--tiktok-pink); }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>Grok TikTok Studio</h1>
+    <p class="subtitle">Générez des vidéos verticales cinématographiques avec Grok</p>
+</header>
+
+<div class="info-banner">
+    <strong>Studio 9:16 propulsé par Grok :</strong> Composez votre scène — sujet, tenue, lieu, action,
+    caméra, ambiance — et générez des vidéos verticales. Compatible avec <strong>grok-imagine-video-1.5</strong>
+    et <strong>grok-imagine-video-1.5-lite</strong>.
+</div>
+
+<!-- ═══ API KEY ═══ -->
+<div class="api-panel" id="api-panel">
+    <input type="password" class="api-key-input" id="api-key-input"
+           placeholder="Collez votre clé API xAI ici (xai-...)" autocomplete="off" spellcheck="false">
+    <button type="button" class="api-save-btn" id="api-save-btn">Enregistrer la clé</button>
+    <div class="api-status-line" id="api-status-line">
+        <span class="status-dot"></span>
+        <span id="api-status-text">Aucune clé API enregistrée</span>
+    </div>
+    <div class="api-hint">
+        Clé gratuite sur <a href="https://console.x.ai" target="_blank">console.x.ai</a> → API Keys
+    </div>
+    <div class="wake-status" id="wake-status">
+        <span id="wake-status-text">💤 Veille automatique</span>
+        <button type="button" id="wake-toggle-btn">Garder l'écran allumé</button>
+    </div>
+</div>
+
+<!-- ═══ MODÈLE ═══ -->
+<div class="section" id="section-model">
+    <div class="section-header" data-toggle="section-model">
+        <span class="section-title">🤖 Modèle Grok</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="control-row">
+                <label class="control-label">Modèle vidéo</label>
+                <select id="model-select">
+                    <option value="grok-imagine-video-1.5" selected>grok-imagine-video-1.5 — Qualité max, 1080p, 15s</option>
+                    <option value="grok-imagine-video-1.5-lite">grok-imagine-video-1.5-lite — Économique, 1080p upscalé</option>
+                    <option value="grok-imagine-video">grok-imagine-video — Standard, 720p max</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Résolution</label>
+                <select id="resolution-select">
+                    <option value="720p" selected>720p — Équilibré</option>
+                    <option value="1080p">1080p — Haute définition</option>
+                    <option value="480p">480p — Rapide</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SCÈNES PRÉ-RÉGLÉES ═══ -->
+<div class="section open" id="section-combos">
+    <div class="section-header" data-toggle="section-combos">
+        <span class="section-title">⚡ Scènes prêtes à générer <span class="badge">presets</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="combo-grid" id="combo-grid"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SUJET ═══ -->
+<div class="section open" id="section-subject">
+    <div class="section-header" data-toggle="section-subject">
+        <span class="section-title">👤 Sujet</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="control-row">
+                <label class="control-label">Description du personnage</label>
+                <textarea id="subject-desc" placeholder="Décrivez votre personnage : âge, apparence, traits physiques, expression…"></textarea>
+            </div>
+            <div class="chip-group-label">Genre</div>
+            <div class="chip-group" id="gender-chips"></div>
+            <div class="chip-group-label">Âge</div>
+            <div class="chip-group" id="age-chips"></div>
+            <div class="chip-group-label">Silhouette</div>
+            <div class="chip-group" id="build-chips"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ TENUE ═══ -->
+<div class="section" id="section-outfit">
+    <div class="section-header" data-toggle="section-outfit">
+        <span class="section-title">👕 Tenue</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="chip-group" id="outfit-chips"></div>
+            <div class="control-row" style="margin-top: 0.8rem;">
+                <label class="control-label">Ou décrivez votre tenue</label>
+                <textarea id="outfit-custom" placeholder="Ex : une casquette bleu marine New York Yankees, un long manteau beige usé..."></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ LIEU ═══ -->
+<div class="section open" id="section-location">
+    <div class="section-header" data-toggle="section-location">
+        <span class="section-title">📍 Lieu</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="chip-group" id="location-chips"></div>
+            <div class="control-row" style="margin-top: 0.8rem;">
+                <label class="control-label">Ou décrivez votre lieu</label>
+                <textarea id="location-custom" placeholder="Ex : une place piétonne bondée au sol mouillé qui reflète les néons…"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ ACTION ═══ -->
+<div class="section open" id="section-action">
+    <div class="section-header" data-toggle="section-action">
+        <span class="section-title">💃 Action / mouvement</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="chip-group" id="action-chips"></div>
+            <div class="control-row" style="margin-top: 0.8rem;">
+                <label class="control-label">Ou décrivez l'action</label>
+                <textarea id="action-custom" placeholder="Ex : il danse seul au milieu de la place avec un style fluide et soul…"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ CAMÉRA & LUMIÈRE ═══ -->
+<div class="section" id="section-camera">
+    <div class="section-header" data-toggle="section-camera">
+        <span class="section-title">📷 Caméra & lumière</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="control-row">
+                <label class="control-label">Objectif & ouverture</label>
+                <select id="lens-select">
+                    <option value="50mm f/1.8">50mm f/1.8 — polyvalent cinéma</option>
+                    <option value="85mm f/1.4">85mm f/1.4 — portrait serré, bokeh</option>
+                    <option value="35mm f/2.0">35mm f/2.0 — plan large, contexte</option>
+                    <option value="24mm f/2.8">24mm f/2.8 — ultra-large, environnement</option>
+                    <option value="135mm f/2.0">135mm f/2.0 — compression, isolement</option>
+                </select>
+            </div>
+            <div class="control-row">
+                <label class="control-label">Mouvement de caméra</label>
+                <select id="movement-select">
+                    <option value="travelling lent">Travelling lent</option>
+                    <option value="caméra stable à l'épaule">Caméra stable à l'épaule</option>
+                    <option value="plan-séquence">Plan-séquence fluide</option>
+                    <option value="orbite lente">Orbite lente autour du sujet</option>
+                    <option value="dolly-in">Dolly-in (avancée)</option>
+                    <option value="dolly-out">Dolly-out (recul)</option>
+                    <option value="caméra fixe">Caméra fixe</option>
+                    <option value="grue">Grue / mouvement vertical</option>
+                    <option value="drone">Drone aérien</option>
+                </select>
+            </div>
+            <div class="chip-group-label">Lumière</div>
+            <div class="chip-group" id="light-chips"></div>
+            <div class="chip-group-label">Ambiance / couleurs</div>
+            <div class="chip-group" id="mood-chips"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ STYLE VISUEL ═══ -->
+<div class="section" id="section-style">
+    <div class="section-header" data-toggle="section-style">
+        <span class="section-title">🎨 Style visuel</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="chip-group" id="style-chips"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ RÉGLAGES ═══ -->
+<div class="section" id="section-settings">
+    <div class="section-header" data-toggle="section-settings">
+        <span class="section-title">⚙️ Réglages</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="control-row">
+                <label class="control-label">Durée de chaque vidéo</label>
+                <select id="duration-select">
+                    <option value="5">5 secondes</option>
+                    <option value="8" selected>8 secondes (recommandé)</option>
+                    <option value="10">10 secondes</option>
+                    <option value="15">15 secondes</option>
+                </select>
+            </div>
+            <div class="chip-group-label">Nombre de variations</div>
+            <div class="chip-group" id="variant-count-chips"></div>
+            <div class="chip-group-label">Générer des variations sur…</div>
+            <div class="variant-row" id="variant-options">
+                <label class="variant-checkbox"><input type="checkbox" id="variant-locations"> Lieux différents</label>
+                <label class="variant-checkbox"><input type="checkbox" id="variant-actions"> Actions différentes</label>
+                <label class="variant-checkbox"><input type="checkbox" id="variant-outfits"> Tenues différentes</label>
+                <label class="variant-checkbox"><input type="checkbox" id="variant-lights"> Ambiances différentes</label>
+            </div>
+            <div class="control-row" style="margin-top: 0.8rem;">
+                <label class="control-label">Audio natif (voix, sons)</label>
+                <select id="audio-select">
+                    <option value="true" selected>Activé (voix + ambiance)</option>
+                    <option value="false">Désactivé (silencieux)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ APERÇU DU PROMPT ═══ -->
+<div class="section open" id="section-prompt">
+    <div class="section-header" data-toggle="section-prompt">
+        <span class="section-title">📝 Aperçu du prompt</span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+        <div class="section-content">
+            <div class="prompt-tabs">
+                <button type="button" class="prompt-tab active" data-tab="full">Version complète</button>
+                <button type="button" class="prompt-tab" data-tab="short">Version TikTok courte</button>
+            </div>
+            <div class="prompt-preview" id="prompt-preview"></div>
+        </div>
+    </div>
+</div>
+
+<button type="button" class="btn-primary" id="generate-btn" disabled>
+    🎬 Générer les vidéos
+</button>
+
+<button type="button" class="btn-stop" id="stop-btn">
+    ⏹ Arrêter la génération
+</button>
+
+<div class="queue" id="queue" style="display:none;"></div>
+
+<div class="gallery" id="gallery" style="display:none;">
+    <div class="section-title" style="margin-bottom:0.8rem;">Vidéos générées</div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+</div>
+
+<div class="status-bar" id="status-bar">
+    <div class="spinner"></div>
+    <span id="status-text">Préparation…</span>
+</div>
+
+<div class="toast" id="toast">
+    <span class="toast-icon" id="toast-icon">✓</span>
+    <span id="toast-text">Message</span>
+</div>
+
+<canvas id="noSleepCanvas" width="2" height="2"></canvas>
+<video id="noSleepVideo" playsinline muted loop></video>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// CONFIGURATION xAI (GROK)
+// ══════════════════════════════════════════════════════════════════
+const XAI_BASE = 'https://api.x.ai/v1';
+const XAI_VIDEOS_ENDPOINT = XAI_BASE + '/videos/generations';
+const XAI_POLL_ENDPOINT = XAI_BASE + '/videos';
+
+const DEFAULT_MODEL = 'grok-imagine-video-1.5';
+const DEFAULT_ASPECT = '9:16';
+const DEFAULT_DURATION = 8;
+
+// Timing
+let createIntervalMs = 15000;          // Pas de RPM strict documenté pour xAI, intervalle prudent
+const CREATE_INTERVAL_MIN = 15000;
+const CREATE_INTERVAL_MAX = 60000;
+
+const POLL_INITIAL_SEC = 20;
+const POLL_INTERVAL_SEC = 10;
+const MAX_POLL_ATTEMPTS = 60;
+
+const API_KEY_STORAGE = 'xai_api_key';
+const WAKE_LOCK_PREF = 'xai_wakelock_enabled';
+const BUILDER_STATE_KEY = 'grok_studio_builder_v1';
+
+// ══════════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════════
+let toastTimeout = null;
+function showToast(message, type = 'success', duration = 2500) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.classList.remove('visible', 'success', 'error', 'warn');
+    void toast.offsetWidth;
+    document.getElementById('toast-icon').textContent = type === 'error' ? '✕' : type === 'warn' ? '⚠' : '✓';
+    document.getElementById('toast-text').textContent = message;
+    toast.classList.add(type);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toast.classList.remove('visible'), duration);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ANTI-VEILLE
+// ══════════════════════════════════════════════════════════════════
+let wakeLockSentinel = null;
+let wakeLockEnabled = false;
+let canvasStream = null;
+let canvasInterval = null;
+
+function isWakeLockSupported() {
+    return 'wakeLock' in navigator && typeof navigator.wakeLock.request === 'function';
+}
+
+async function requestWakeLockAPI() {
+    if (!isWakeLockSupported()) return false;
+    try {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', () => {
+            wakeLockSentinel = null;
+            updateWakeStatus();
+        });
+        return true;
+    } catch (e) { return false; }
+}
+
+async function releaseWakeLockAPI() {
+    if (wakeLockSentinel) {
+        try { await wakeLockSentinel.release(); } catch (e) {}
+        wakeLockSentinel = null;
+    }
+}
+
+function startCanvasStream() {
+    if (canvasStream) return true;
+    try {
+        const canvas = document.getElementById('noSleepCanvas');
+        const video = document.getElementById('noSleepVideo');
+        if (!canvas || !video) return false;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return false;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (typeof canvas.captureStream !== 'function') return false;
+        canvasStream = canvas.captureStream(1);
+        let toggle = false;
+        canvasInterval = setInterval(() => {
+            toggle = !toggle;
+            ctx.fillStyle = toggle ? '#000' : '#010101';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }, 1000);
+        video.srcObject = canvasStream;
+        video.muted = true;
+        video.playsInline = true;
+        const p = video.play();
+        if (p && p.catch) p.catch(() => {});
+        return true;
+    } catch (e) { return false; }
+}
+
+function stopCanvasStream() {
+    if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
+    const video = document.getElementById('noSleepVideo');
+    if (video) {
+        try { video.pause(); video.srcObject = null; } catch (e) {}
+    }
+    if (canvasStream) {
+        try { canvasStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+        canvasStream = null;
+    }
+}
+
+async function activateWakeLock() {
+    let success = false;
+    if (isWakeLockSupported()) success = await requestWakeLockAPI();
+    if (!success) success = startCanvasStream();
+    return success;
+}
+
+async function deactivateWakeLock() {
+    await releaseWakeLockAPI();
+    stopCanvasStream();
+}
+
+function updateWakeStatus() {
+    const el = document.getElementById('wake-status');
+    const txt = document.getElementById('wake-status-text');
+    const btn = document.getElementById('wake-toggle-btn');
+    if (!el || !txt || !btn) return;
+
+    el.classList.remove('active');
+    const isActive = wakeLockSentinel !== null || canvasStream !== null;
+
+    if (wakeLockEnabled && isActive) {
+        el.classList.add('active');
+        txt.textContent = '✅ L\'écran reste allumé';
+        btn.textContent = 'Désactiver';
+    } else if (wakeLockEnabled && !isActive) {
+        txt.textContent = '⏳ En attente (touchez la page)';
+        btn.textContent = 'Désactiver';
+    } else {
+        txt.textContent = '💤 Veille automatique';
+        btn.textContent = 'Garder l\'écran allumé';
+    }
+}
+
+async function toggleWakeLock() {
+    if (wakeLockEnabled) {
+        wakeLockEnabled = false;
+        await deactivateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '0'); } catch (e) {}
+        showToast('Veille automatique réactivée', 'warn');
+    } else {
+        wakeLockEnabled = true;
+        const ok = await activateWakeLock();
+        try { localStorage.setItem(WAKE_LOCK_PREF, '1'); } catch (e) {}
+        showToast(ok ? 'L\'écran va rester allumé' : 'Activez manuellement dans les réglages', ok ? 'success' : 'warn');
+    }
+    updateWakeStatus();
+}
+
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && wakeLockEnabled) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+});
+
+async function ensureWakeLockActive() {
+    if (!wakeLockEnabled) return;
+    if (wakeLockSentinel === null && canvasStream === null) {
+        await activateWakeLock();
+        updateWakeStatus();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CLÉ API
+// ══════════════════════════════════════════════════════════════════
+function getApiKey() {
+    try { return (localStorage.getItem(API_KEY_STORAGE) || '').trim(); }
+    catch (e) { return ''; }
+}
+
+function saveApiKey() {
+    const input = document.getElementById('api-key-input');
+    if (!input) return;
+    const key = input.value.trim();
+
+    if (!key) {
+        try { localStorage.removeItem(API_KEY_STORAGE); } catch (e) {}
+        updateApiPanel();
+        showToast('Clé supprimée', 'warn');
+        return;
+    }
+
+    if (!key.startsWith('xai-') && !key.startsWith('sk-')) {
+        if (!confirm('La clé ne commence pas par "xai-". La sauvegarder quand même ?')) return;
+    }
+
+    try {
+        localStorage.setItem(API_KEY_STORAGE, key);
+        updateApiPanel();
+        showToast('Clé API enregistrée ✓', 'success');
+        input.blur();
+    } catch (e) {
+        showToast('Erreur lors de la sauvegarde', 'error');
+    }
+}
+
+function updateApiPanel() {
+    const panel = document.getElementById('api-panel');
+    const input = document.getElementById('api-key-input');
+    const statusLine = document.getElementById('api-status-line');
+    const statusText = document.getElementById('api-status-text');
+    const key = getApiKey();
+
+    if (!panel || !input || !statusLine || !statusText) return;
+
+    if (key) {
+        panel.classList.add('ok');
+        statusLine.classList.add('ok');
+        statusText.textContent = 'Clé API active · ' + key.slice(0, 8) + '…' + key.slice(-4);
+        input.value = key;
+        input.placeholder = '';
+    } else {
+        panel.classList.remove('ok');
+        statusLine.classList.remove('ok');
+        statusText.textContent = 'Aucune clé API enregistrée';
+        input.value = '';
+        input.placeholder = 'Collez votre clé API xAI ici (xai-...)';
+    }
+    updateGenerateBtn();
+}
+
+function updateGenerateBtn() {
+    const btn = document.getElementById('generate-btn');
+    if (!btn) return;
+    const hasKey = !!getApiKey();
+    btn.disabled = !hasKey || state.isRunning;
+
+    if (state.isRunning) {
+        btn.textContent = 'Génération en cours…';
+    } else if (!hasKey) {
+        btn.textContent = 'Ajoutez votre clé API xAI';
+    } else {
+        btn.textContent = '🎬 Générer les vidéos';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITAIRES
+// ══════════════════════════════════════════════════════════════════
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function log(msg) { console.log('[Grok Studio] ' + msg); }
+function setStatus(text) {
+    const bar = document.getElementById('status-bar');
+    const txt = document.getElementById('status-text');
+    if (!bar || !txt) return;
+    if (text) { bar.classList.add('visible'); txt.textContent = text; }
+    else bar.classList.remove('visible');
+}
+function randomItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}
+function formatEta(seconds) {
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return m + 'm' + (s > 0 ? ' ' + s + 's' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DONNÉES DE CONSTRUCTION
+// ══════════════════════════════════════════════════════════════════
+
+// ─── Combos pré-réglés ───────────────────────────────────────────
+const COMBOS = [
+    {
+        id: 'times-square-dance',
+        emoji: '🗽',
+        name: 'Times Square Dance',
+        desc: 'Danse soul sous les néons',
+        preset: {
+            subject: 'Un homme noir d\'une quarantaine d\'années, cheveux noirs mi-longs bouclés, barbe fournie',
+            outfit: 'une casquette bleu marine New York Yankees, un long manteau beige usé et effiloché ouvert, un hoodie bleu marine en dessous, un t-shirt gris délavé, un pantalon large marron déchiré aux genoux, des baskets usées marron',
+            location: 'Times Square la nuit après la pluie, place piétonne bondée en arrière-plan flou, sol en dalles noires brillantes et mouillées qui reflètent les néons roses, bleus et violets',
+            action: 'Il danse seul au milieu de la place, avec un style fluide et soul, mélange de glissades, de moonwalk, de petits pas latéraux et de mouvements de bras amples et contrôlés. Il se retourne vers la caméra, sourit légèrement, et continue à danser de manière détendue et charismatique.',
+            light: 'Nuit, lumière urbaine néon, reflets colorés sur le sol mouillé, contraste cinématographique, profondeur de champ faible, bokeh',
+            camera: 'Caméra stable à hauteur d\'homme, objectif 50mm, ouverture f/1.8, léger suivi du danseur, focus net sur lui, arrière-plan flouté',
+            style: 'Réaliste, 4K, rendu cinématographique, couleurs froides avec accents néon chauds, grain léger, ambiance New York authentique et poétique'
+        }
+    },
+    {
+        id: 'tokyo-neon',
+        emoji: '🗼',
+        name: 'Tokyo Néon',
+        desc: 'Ambiance cyberpunk japonaise',
+        preset: {
+            subject: 'Une jeune femme japonaise aux cheveux courts roses',
+            outfit: 'une veste en cuir noir, un top blanc, une jupe plissée sombre, des bottines à plateforme',
+            location: 'Une ruelle étroite de Tokyo la nuit, enseignes au néon empilées, câbles électriques, sol mouillé',
+            action: 'Elle marche lentement vers la caméra, regarde autour d\'elle, puis s\'arrête et allume une cigarette',
+            light: 'Néons rose et cyan, reflets sur le sol mouillé, contraste élevé',
+            camera: 'Travelling avant lent, 35mm, f/2.0',
+            style: 'Cyberpunk, réaliste, 4K'
+        }
+    },
+    {
+        id: 'paris-cafe',
+        emoji: '☕',
+        name: 'Paris Café',
+        desc: 'Élégance à la française',
+        preset: {
+            subject: 'Un homme français d\'une trentaine d\'années, cheveux bruns courts, barbe naissante',
+            outfit: 'un trench-coat beige, une chemise blanche, un pantalon chino marine, des mocassins marron',
+            location: 'Une terrasse de café parisien au petit matin, tables en rotin, clients attablés, façade haussmannienne',
+            action: 'Il lit son journal en buvant un espresso, puis lève les yeux vers la caméra avec un sourire discret',
+            light: 'Lumière douce du matin, dorée, ombres longues',
+            camera: 'Plan fixe, 85mm, f/1.4',
+            style: 'Cinématique, chaleureux, 4K'
+        }
+    },
+    {
+        id: 'desert-dance',
+        emoji: '🏜️',
+        name: 'Désert Doré',
+        desc: 'Mouvement et poussière',
+        preset: {
+            subject: 'Une femme métisse aux longs cheveux bouclés',
+            outfit: 'une robe fluide blanche, des sandales en cuir, des bijoux dorés',
+            location: 'Un désert de sable doré au coucher du soleil, dunes infinies',
+            action: 'Elle tourne sur elle-même lentement, les bras ouverts, la robe flottant au vent',
+            light: 'Golden hour, lumière chaude, longues ombres',
+            camera: 'Orbite lente autour du sujet, 50mm, f/2.0',
+            style: 'Cinématique, épique, 4K'
+        }
+    },
+    {
+        id: 'rain-window',
+        emoji: '🌧️',
+        name: 'Pluie sur la Vitre',
+        desc: 'Mélancolie douce',
+        preset: {
+            subject: 'Un homme d\'une trentaine d\'années, cheveux noirs, regard pensif',
+            outfit: 'un pull gris, un jean sombre',
+            location: 'Un appartement aux grandes fenêtres, pluie battante à l\'extérieur, lumières de la ville floues',
+            action: 'Il regarde par la fenêtre, puis se retourne lentement vers la caméra',
+            light: 'Lumière tamisée, bleue, reflets de la ville',
+            camera: 'Plan fixe, 50mm, f/1.8',
+            style: 'Onirique, mélancolique, 4K'
+        }
+    },
+    {
+        id: 'street-skate',
+        emoji: '🛹',
+        name: 'Street Skate',
+        desc: 'Énergie urbaine',
+        preset: {
+            subject: 'Un jeune homme aux cheveux blonds, style streetwear',
+            outfit: 'un hoodie oversize noir, un jean baggy, des sneakers blanches, une casquette',
+            location: 'Un skatepark urbain en fin d\'après-midi, rampes en béton, graffitis',
+            action: 'Il exécute un trick sur une rampe, atterrit, puis roule vers la caméra en souriant',
+            light: 'Lumière dorée de fin d\'après-midi, contraste',
+            camera: 'Caméra dynamique à l\'épaule, 24mm, f/2.8',
+            style: 'Documentaire, énergique, 4K'
+        }
+    }
+];
+
+// ─── Chips ───────────────────────────────────────────────────────
+const GENDER_OPTIONS = ['Homme', 'Femme', 'Non-binaire'];
+const AGE_OPTIONS = ['20 ans', '30 ans', '40 ans', '50 ans', '60 ans'];
+const BUILD_OPTIONS = ['Mince', 'Athlétique', 'Corpulent', 'Grand', 'Petit'];
+
+const OUTFIT_OPTIONS = [
+    'Casquette NY, manteau beige, hoodie marine',
+    'Trench-coat, chemise, chino',
+    'Robe fluide, sandales, bijoux',
+    'Veste en cuir, jean, bottines',
+    'Hoodie oversize, jean baggy, sneakers',
+    'Costume trois pièces',
+    'Robe de soirée, talons',
+    'Streetwear coloré',
+    'Tenue de sport',
+    'Style vintage 70s'
+];
+
+const LOCATION_OPTIONS = [
+    'Times Square la nuit',
+    'Tokyo néon',
+    'Paris café',
+    'Désert doré',
+    'Ruelle new-yorkaise',
+    'Plage au coucher du soleil',
+    'Forêt brumeuse',
+    'Toit-terrasse urbain',
+    'Métro new-yorkais',
+    'Studio photo minimaliste'
+];
+
+const ACTION_OPTIONS = [
+    'Danse fluide et soul',
+    'Marche lente vers la caméra',
+    'Tourne sur elle-même',
+    'Regarde par la fenêtre',
+    'Exécute un trick de skate',
+    'Sourit à la caméra',
+    'S\'assoit et observe',
+    'Court dans la rue',
+    'Rit aux éclats',
+    'Pose immobile, regard intense'
+];
+
+const LIGHT_OPTIONS = [
+    'Néon nocturne',
+    'Golden hour',
+    'Lumière douce du matin',
+    'Clair de lune',
+    'Chiaroscuro',
+    'Lumière naturelle',
+    'Néon rose et cyan',
+    'Lumière de bougie'
+];
+
+const MOOD_OPTIONS = [
+    'Cinématographique',
+    'Onirique',
+    'Mélancolique',
+    'Énergique',
+    'Romantique',
+    'Cyberpunk',
+    'Documentaire',
+    'Poétique'
+];
+
+const STYLE_OPTIONS = [
+    'Réaliste 4K',
+    'Cinématographique',
+    'Street photography',
+    'Documentaire',
+    'Mode éditorial',
+    'Néon noir',
+    'Golden hour',
+    'Noir et blanc'
+];
+
+const VARIANT_COUNTS = [1, 2, 3, 4, 5];
+
+// ══════════════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ══════════════════════════════════════════════════════════════════
+const state = {
+    isRunning: false,
+    stopRequested: false,
+    queue: [],
+    completed: 0,
+    failed: 0,
+    selectedCombo: null,
+    selectedGender: null,
+    selectedAge: null,
+    selectedBuild: null,
+    selectedOutfit: null,
+    selectedLocation: null,
+    selectedAction: null,
+    selectedLight: null,
+    selectedMood: null,
+    selectedStyle: null,
+    selectedVariantCount: 1,
+    subjectDesc: '',
+    outfitCustom: '',
+    locationCustom: '',
+    actionCustom: '',
+    durationSeconds: 8,
+    audioEnabled: true,
+    promptTab: 'full'
+};
+
+// ══════════════════════════════════════════════════════════════════
+// RENDU — COMBO CARDS
+// ══════════════════════════════════════════════════════════════════
+function renderCombos() {
+    const container = document.getElementById('combo-grid');
+    container.innerHTML = COMBOS.map(c => `
+        <div class="combo-card ${state.selectedCombo === c.id ? 'selected' : ''}" data-combo="${c.id}">
+            <div class="combo-emoji">${c.emoji}</div>
+            <div class="combo-name">${esc(c.name)}</div>
+            <div class="combo-desc">${esc(c.desc)}</div>
+        </div>
+    `).join('');
+
+    container.querySelectorAll('.combo-card').forEach(el => {
+        el.addEventListener('click', () => {
+            const combo = COMBOS.find(c => c.id === el.dataset.combo);
+            if (!combo) return;
+            state.selectedCombo = combo.id;
+
+            const p = combo.preset;
+            document.getElementById('subject-desc').value = p.subject;
+            document.getElementById('outfit-custom').value = p.outfit;
+            document.getElementById('location-custom').value = p.location;
+            document.getElementById('action-custom').value = p.action;
+
+            state.subjectDesc = p.subject;
+            state.outfitCustom = p.outfit;
+            state.locationCustom = p.location;
+            state.actionCustom = p.action;
+
+            // Sélectionner les chips correspondantes si elles existent
+            selectChipByValue('outfit-chips', p.outfit);
+            selectChipByValue('location-chips', p.location);
+            selectChipByValue('action-chips', p.action);
+
+            renderCombos();
+            updatePromptPreview();
+            showToast('Scène « ' + combo.name + ' » chargée', 'success', 1500);
+        });
+    });
+}
+
+function selectChipByValue(containerId, value) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.querySelectorAll('.chip').forEach(chip => {
+        chip.classList.toggle('selected', chip.dataset.value === value);
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDU — CHIPS
+// ══════════════════════════════════════════════════════════════════
+function renderChips(containerId, options, stateKey) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = options.map(opt => `
+        <div class="chip ${state[stateKey] === opt ? 'selected' : ''}" data-value="${esc(opt)}">${esc(opt)}</div>
+    `).join('');
+
+    container.querySelectorAll('.chip').forEach(el => {
+        el.addEventListener('click', () => {
+            const val = el.dataset.value;
+            state[stateKey] = (state[stateKey] === val) ? null : val;
+            renderChips(containerId, options, stateKey);
+            updatePromptPreview();
+        });
+    });
+}
+
+function renderVariantCounts() {
+    const container = document.getElementById('variant-count-chips');
+    if (!container) return;
+    container.innerHTML = VARIANT_COUNTS.map(n => `
+        <div class="chip ${state.selectedVariantCount === n ? 'selected' : ''}" data-count="${n}">${n} vidéo${n > 1 ? 's' : ''}</div>
+    `).join('');
+
+    container.querySelectorAll('.chip').forEach(el => {
+        el.addEventListener('click', () => {
+            state.selectedVariantCount = parseInt(el.dataset.count, 10);
+            renderVariantCounts();
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CONSTRUCTION DU PROMPT
+// ══════════════════════════════════════════════════════════════════
+function buildPrompt(variation) {
+    const v = variation || {};
+
+    const subject = v.subject || state.subjectDesc || 'Un personnage';
+    const outfit = v.outfit || state.outfitCustom || state.selectedOutfit || '';
+    const location = v.location || state.locationCustom || state.selectedLocation || '';
+    const action = v.action || state.actionCustom || state.selectedAction || '';
+    const light = v.light || state.selectedLight || 'Lumière naturelle';
+    const mood = v.mood || state.selectedMood || 'Cinématographique';
+    const style = v.style || state.selectedStyle || 'Réaliste 4K';
+    const camera = v.camera || 'Caméra stable, 50mm, f/1.8';
+    const movement = v.movement || document.getElementById('movement-select').value;
+
+    const parts = [];
+
+    // Sujet
+    parts.push('Sujet : ' + subject + '.');
+
+    // Tenue
+    if (outfit) parts.push('Tenue : ' + outfit + '.');
+
+    // Action
+    if (action) parts.push('Action : ' + action + '.');
+
+    // Décor
+    if (location) parts.push('Décor : ' + location + '.');
+
+    // Lumière
+    parts.push('Lumière / Ambiance : ' + light + '.');
+
+    // Caméra
+    parts.push('Caméra : ' + camera + ', ' + movement + '.');
+
+    // Style
+    parts.push('Style : ' + style + ', grain léger, couleurs cinématographiques.');
+
+    // Audio natif
+    if (state.audioEnabled) {
+        parts.push('Audio : son natif, ambiance urbaine discrète, pas de musique.');
+    } else {
+        parts.push('Audio : silencieux, aucun son.');
+    }
+
+    // Format
+    parts.push('Format : vertical 9:16, 24fps.');
+
+    return parts.join(' ');
+}
+
+function buildShortPrompt(variation) {
+    const v = variation || {};
+    const subject = v.subject || state.subjectDesc || 'Un personnage';
+    const outfit = v.outfit || state.outfitCustom || state.selectedOutfit || '';
+    const location = v.location || state.locationCustom || state.selectedLocation || '';
+    const action = v.action || state.actionCustom || state.selectedAction || '';
+
+    return 'Vidéo cinématique verticale 9:16. ' + subject + '. ' + outfit + '. ' + action + '. ' + location + '. Plan cinématique, 50mm, f/1.8, style street dance réaliste.';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// APERÇU DU PROMPT
+// ══════════════════════════════════════════════════════════════════
+function updatePromptPreview() {
+    const preview = document.getElementById('prompt-preview');
+    if (!preview) return;
+
+    const text = state.promptTab === 'short' ? buildShortPrompt() : buildPrompt();
+
+    // Formater en sections pour la version complète
+    if (state.promptTab === 'full') {
+        const sections = text.split('. ').map((s, i) => {
+            const colonIdx = s.indexOf(' : ');
+            if (colonIdx > 0 && colonIdx < 30) {
+                const label = s.slice(0, colonIdx);
+                const content = s.slice(colonIdx + 3);
+                return `<div class="prompt-section"><span class="prompt-label">${esc(label)}</span><span class="prompt-content">${esc(content)}</span></div>`;
+            }
+            return `<div class="prompt-section"><span class="prompt-content">${esc(s)}</span></div>`;
+        }).join('');
+        preview.innerHTML = sections;
+    } else {
+        preview.textContent = text;
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GÉNÉRATION DES VARIATIONS
+// ══════════════════════════════════════════════════════════════════
+function generateVariations() {
+    const count = state.selectedVariantCount;
+    const variations = [];
+
+    const varyLocations = document.getElementById('variant-locations').checked;
+    const varyActions = document.getElementById('variant-actions').checked;
+    const varyOutfits = document.getElementById('variant-outfits').checked;
+    const varyLights = document.getElementById('variant-lights').checked;
+
+    // Base
+    const base = {
+        subject: state.subjectDesc,
+        outfit: state.outfitCustom || state.selectedOutfit,
+        location: state.locationCustom || state.selectedLocation,
+        action: state.actionCustom || state.selectedAction,
+        light: state.selectedLight,
+        mood: state.selectedMood,
+        style: state.selectedStyle,
+        camera: document.getElementById('lens-select').value,
+        movement: document.getElementById('movement-select').value
+    };
+
+    for (let i = 0; i < count; i++) {
+        const v = Object.assign({}, base);
+        if (i > 0) {
+            if (varyLocations) v.location = randomItem(LOCATION_OPTIONS);
+            if (varyActions) v.action = randomItem(ACTION_OPTIONS);
+            if (varyOutfits) v.outfit = randomItem(OUTFIT_OPTIONS);
+            if (varyLights) v.light = randomItem(LIGHT_OPTIONS);
+        }
+        variations.push(v);
+    }
+
+    return variations;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// API xAI — FETCH AVEC BACKOFF
+// ══════════════════════════════════════════════════════════════════
+async function apiFetch(url, options = {}, label = 'API') {
+    for (let attempt = 0; attempt < 6; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        try {
+            const res = await fetch(url, options);
+            if (res.status === 429) {
+                if (createIntervalMs < CREATE_INTERVAL_MAX) {
+                    createIntervalMs = Math.min(createIntervalMs + 5000, CREATE_INTERVAL_MAX);
+                }
+                const wait = [10, 20, 30, 45, 60, 90][Math.min(attempt, 5)];
+                log(label + ' : 429, attente ' + wait + 's');
+                setStatus('Limite atteinte — reprise dans ' + wait + 's');
+                await sleep(wait * 1000);
+                continue;
+            }
+            if (res.status === 503) {
+                const wait = [5, 10, 15, 20, 30, 45][Math.min(attempt, 5)];
+                log(label + ' : 503, attente ' + wait + 's');
+                setStatus('Serveur occupé — reprise dans ' + wait + 's');
+                await sleep(wait * 1000);
+                continue;
+            }
+            return res;
+        } catch (e) {
+            if (e.message === 'Arrêt demandé') throw e;
+            const wait = [3, 5, 8, 12, 20, 30][Math.min(attempt, 5)];
+            log(label + ' : réseau, retry ' + wait + 's');
+            setStatus('Connexion en cours… (' + wait + 's)');
+            await sleep(wait * 1000);
+        }
+    }
+    return fetch(url, options);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CRÉATION DE TÂCHE VIDÉO
+// ══════════════════════════════════════════════════════════════════
+async function createVideoTask(prompt) {
+    const model = document.getElementById('model-select').value;
+    const resolution = document.getElementById('resolution-select').value;
+    const duration = state.durationSeconds;
+    const generateAudio = state.audioEnabled;
+
+    const body = {
+        model: model,
+        prompt: prompt,
+        aspect_ratio: DEFAULT_ASPECT,
+        duration: duration,
+        resolution: resolution,
+        generate_audio: generateAudio
+    };
+
+    const res = await apiFetch(XAI_VIDEOS_ENDPOINT, {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + getApiKey(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    }, 'Création vidéo');
+
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200));
+    }
+
+    const data = await res.json();
+    const requestId = data.request_id || data.id;
+    if (!requestId) throw new Error('Pas de request_id retourné');
+    return requestId;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// POLLING
+// ══════════════════════════════════════════════════════════════════
+async function pollVideo(requestId, onProgress) {
+    // Attente initiale
+    let remaining = POLL_INITIAL_SEC;
+    while (remaining > 0) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        onProgress('Votre vidéo se prépare… — ' + remaining + 's');
+        await sleep(1000);
+        remaining--;
+    }
+
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+        if (state.stopRequested) throw new Error('Arrêt demandé');
+        if (attempt > 0) {
+            let r = POLL_INTERVAL_SEC;
+            while (r > 0) {
+                if (state.stopRequested) throw new Error('Arrêt demandé');
+                onProgress('Création en cours… — ' + r + 's');
+                await sleep(1000);
+                r--;
+            }
+        }
+
+        const url = XAI_POLL_ENDPOINT + '/' + encodeURIComponent(requestId);
+        const res = await apiFetch(url, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + getApiKey() }
+        }, 'Polling');
+
+        const d = await res.json();
+        const status = d.status || 'unknown';
+        const progress = d.progress || 0;
+        onProgress('Création en cours… — ' + progress + '%');
+
+        if (status === 'done' || status === 'completed' || status === 'succeeded') {
+            const videoUrl = (d.output && d.output.url) || d.url || (d.metadata && d.metadata.url);
+            if (!videoUrl) throw new Error('Terminé mais pas d\'URL');
+            return videoUrl;
+        }
+        if (status === 'failed' || status === 'error' || status === 'cancelled') {
+            throw new Error('Échec (' + status + ')');
+        }
+    }
+    throw new Error('Délai maximal dépassé');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FILE D'ATTENTE
+// ══════════════════════════════════════════════════════════════════
+function renderQueue() {
+    const queueEl = document.getElementById('queue');
+    if (!state.queue.length) { queueEl.style.display = 'none'; return; }
+    queueEl.style.display = 'block';
+
+    const total = state.queue.length;
+    const done = state.completed + state.failed;
+    const inProgress = state.queue.filter(q => q.status === 'processing').length;
+    const pending = total - done - inProgress;
+
+    const estGen = 30;
+    const remainingCreates = pending;
+    const eta = remainingCreates > 0
+        ? (remainingCreates * (createIntervalMs / 1000)) + estGen
+        : (inProgress * estGen / Math.max(inProgress, 1));
+
+    let html = '<div class="queue-summary">' +
+        '<span class="progress-text">Progression : ' + done + '/' + total + '</span>' +
+        '<span class="eta-text">' + (done < total ? '≈ ' + formatEta(eta) + ' restant' : 'Terminé') + '</span>' +
+        '</div>';
+
+    html += state.queue.map(item => {
+        let icon = '○', statusText = 'En file d\'attente', cls = 'pending';
+        if (item.status === 'creating') { icon = '◐'; statusText = 'Préparation…'; cls = 'creating'; }
+        else if (item.status === 'processing') { icon = '◐'; statusText = item.progress || 'En cours…'; cls = 'processing'; }
+        else if (item.status === 'done') { icon = '●'; statusText = 'Terminé'; cls = 'done'; }
+        else if (item.status === 'failed') { icon = '✕'; statusText = 'Échec'; cls = 'failed'; }
+
+        return '<div class="queue-item ' + cls + '">' +
+            '<div class="q-icon">' + icon + '</div>' +
+            '<div class="q-name">' + esc(item.label) + '</div>' +
+            '<div class="q-status">' + esc(statusText) + '</div>' +
+        '</div>';
+    }).join('');
+
+    queueEl.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GALERIE
+// ══════════════════════════════════════════════════════════════════
+function addToGallery(videoUrl, label) {
+    const galleryEl = document.getElementById('gallery');
+    const galleryGrid = document.getElementById('gallery-grid');
+    galleryEl.style.display = 'block';
+    const el = document.createElement('div');
+    el.className = 'gallery-item';
+    el.innerHTML = '<video controls preload="metadata" muted playsinline>' +
+        '<source src="' + videoUrl + '" type="video/mp4">' +
+        '</video>' +
+        '<div class="g-caption">' + esc(label) + '</div>';
+    galleryGrid.appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PIPELINE
+// ══════════════════════════════════════════════════════════════════
+async function createTaskOnly(item) {
+    item.status = 'creating';
+    item.progress = 'Préparation…';
+    renderQueue();
+
+    const prompt = item.prompt;
+    log('[' + item.label + '] Création…');
+
+    const requestId = await createVideoTask(prompt);
+    item.requestId = requestId;
+    item.startTime = Date.now();
+    item.status = 'processing';
+    item.progress = 'En cours…';
+    renderQueue();
+
+    log('[' + item.label + '] Tâche créée : ' + String(requestId).slice(0, 30) + '…');
+    return requestId;
+}
+
+async function pollTaskAndDisplay(item) {
+    try {
+        const videoUrl = await pollVideo(item.requestId, (prog) => {
+            item.progress = prog;
+            renderQueue();
+        });
+
+        const elapsed = Date.now() - item.startTime;
+        log('[' + item.label + '] Terminée en ' + (elapsed / 1000).toFixed(1) + 's');
+
+        item.status = 'done';
+        item.videoUrl = videoUrl;
+        item.progress = 'Terminé';
+        state.completed++;
+        renderQueue();
+        updateGenerateBtn();
+
+        addToGallery(videoUrl, item.label);
+    } catch (e) {
+        if (e.message === 'Arrêt demandé') {
+            item.status = 'failed';
+            item.progress = 'Arrêté';
+        } else {
+            log('[' + item.label + '] ' + e.message);
+            item.status = 'failed';
+            item.progress = 'Échec';
+            state.failed++;
+        }
+        renderQueue();
+        updateGenerateBtn();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// WORKFLOW PRINCIPAL
+// ══════════════════════════════════════════════════════════════════
+async function startGeneration() {
+    if (state.isRunning) return;
+    if (!getApiKey()) {
+        showToast('Ajoutez d\'abord votre clé API xAI', 'error');
+        document.getElementById('api-key-input').focus();
+        return;
+    }
+
+    // Récupérer les valeurs des champs
+    state.subjectDesc = document.getElementById('subject-desc').value.trim();
+    state.outfitCustom = document.getElementById('outfit-custom').value.trim();
+    state.locationCustom = document.getElementById('location-custom').value.trim();
+    state.actionCustom = document.getElementById('action-custom').value.trim();
+    state.durationSeconds = parseInt(document.getElementById('duration-select').value, 10) || 8;
+    state.audioEnabled = document.getElementById('audio-select').value === 'true';
+
+    if (!state.subjectDesc && !state.outfitCustom && !state.locationCustom && !state.actionCustom) {
+        showToast('Décrivez au moins le sujet ou choisissez une scène prête', 'warn');
+        return;
+    }
+
+    state.isRunning = true;
+    state.stopRequested = false;
+    state.completed = 0;
+    state.failed = 0;
+    createIntervalMs = CREATE_INTERVAL_MIN;
+
+    // Générer les variations
+    const variations = generateVariations();
+    const prompts = variations.map(v => buildPrompt(v));
+    const shortPrompts = variations.map(v => buildShortPrompt(v));
+
+    state.queue = variations.map((v, i) => ({
+        index: i,
+        label: 'Variation ' + (i + 1),
+        prompt: prompts[i],
+        shortPrompt: shortPrompts[i],
+        status: 'pending',
+        progress: null,
+        requestId: null,
+        videoUrl: null,
+        startTime: null
+    }));
+
+    document.getElementById('gallery-grid').innerHTML = '';
+    document.getElementById('gallery').style.display = 'none';
+
+    document.getElementById('stop-btn').classList.add('visible');
+    document.getElementById('generate-btn').disabled = true;
+
+    await ensureWakeLockActive();
+
+    renderQueue();
+    updateGenerateBtn();
+
+    log('Démarrage — ' + state.queue.length + ' variation(s)');
+    log('Modèle : ' + document.getElementById('model-select').value);
+    log('Format : ' + DEFAULT_ASPECT + ', ' + state.durationSeconds + 's');
+
+    const totalStart = Date.now();
+    const pollingTasks = [];
+
+    try {
+        for (let i = 0; i < state.queue.length; i++) {
+            if (state.stopRequested) break;
+
+            const item = state.queue[i];
+
+            try {
+                await createTaskOnly(item);
+                pollingTasks.push(pollTaskAndDisplay(item));
+            } catch (e) {
+                if (e.message === 'Arrêt demandé') break;
+                log('[' + item.label + '] Échec création : ' + e.message);
+                item.status = 'failed';
+                item.progress = 'Échec';
+                state.failed++;
+                renderQueue();
+                updateGenerateBtn();
+            }
+
+            // Pause entre les créations
+            if (i < state.queue.length - 1 && !state.stopRequested) {
+                const waitSec = Math.ceil(createIntervalMs / 1000);
+                for (let r = waitSec; r > 0; r--) {
+                    if (state.stopRequested) break;
+                    setStatus('Préparation de la variation suivante… — ' + r + 's');
+                    await sleep(1000);
+                }
+            }
+        }
+
+        if (pollingTasks.length > 0) {
+            setStatus('Finalisation…');
+            await Promise.allSettled(pollingTasks);
+        }
+    } catch (e) {
+        log('Erreur globale : ' + e.message);
+    }
+
+    const totalElapsed = (Date.now() - totalStart) / 1000;
+    const summary = state.stopRequested
+        ? 'Arrêté — ' + state.completed + '/' + state.queue.length + ' vidéos'
+        : '✦ ' + state.completed + '/' + state.queue.length + ' vidéos créées en ' + formatEta(totalElapsed) + ' ✦';
+
+    log(summary);
+    setStatus(summary);
+    await sleep(4000);
+    setStatus(null);
+
+    state.isRunning = false;
+    state.stopRequested = false;
+    document.getElementById('stop-btn').classList.remove('visible');
+    updateGenerateBtn();
+
+    if (state.completed > 0) {
+        showToast(state.completed + ' vidéo' + (state.completed > 1 ? 's' : '') + ' créée' + (state.completed > 1 ? 's' : ''), 'success');
+    } else {
+        showToast('Aucune vidéo générée', 'error');
+    }
+}
+
+function stopGeneration() {
+    if (!state.isRunning) return;
+    state.stopRequested = true;
+    log('Arrêt demandé par l\'utilisateur');
+    setStatus('Arrêt en cours…');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INITIALISATION
+// ══════════════════════════════════════════════════════════════════
+(function init() {
+    // Bouton Enregistrer la clé
+    const saveBtn = document.getElementById('api-save-btn');
+    if (saveBtn) saveBtn.addEventListener('click', saveApiKey);
+
+    // Entrée dans le champ API
+    const apiInput = document.getElementById('api-key-input');
+    if (apiInput) {
+        apiInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); saveApiKey(); }
+        });
+    }
+
+    // Bouton Arrêter
+    const stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) stopBtn.addEventListener('click', stopGeneration);
+
+    // Sections collapsibles
+    document.querySelectorAll('[data-toggle]').forEach(header => {
+        header.addEventListener('click', () => {
+            document.getElementById(header.dataset.toggle).classList.toggle('open');
+        });
+    });
+
+    // Onglets prompt
+    document.querySelectorAll('.prompt-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.prompt-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            state.promptTab = tab.dataset.tab;
+            updatePromptPreview();
+        });
+    });
+
+    // Textareas — mise à jour de l'état et du preview
+    ['subject-desc', 'outfit-custom', 'location-custom', 'action-custom'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => {
+                if (id === 'subject-desc') state.subjectDesc = el.value;
+                if (id === 'outfit-custom') state.outfitCustom = el.value;
+                if (id === 'location-custom') state.locationCustom = el.value;
+                if (id === 'action-custom') state.actionCustom = el.value;
+                updatePromptPreview();
+            });
+        }
+    });
+
+    // Sélecteurs
+    const durationSelect = document.getElementById('duration-select');
+    if (durationSelect) {
+        durationSelect.addEventListener('change', e => {
+            state.durationSeconds = parseInt(e.target.value, 10);
+        });
+    }
+
+    const audioSelect = document.getElementById('audio-select');
+    if (audioSelect) {
+        audioSelect.addEventListener('change', e => {
+            state.audioEnabled = e.target.value === 'true';
+            updatePromptPreview();
+        });
+    }
+
+    const lensSelect = document.getElementById('lens-select');
+    if (lensSelect) {
+        lensSelect.addEventListener('change', () => updatePromptPreview());
+    }
+    const movementSelect = document.getElementById('movement-select');
+    if (movementSelect) {
+        movementSelect.addEventListener('change', () => updatePromptPreview());
+    }
+
+    // Bouton Générer
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) generateBtn.addEventListener('click', startGeneration);
+
+    // Bouton Wake Lock
+    const wakeBtn = document.getElementById('wake-toggle-btn');
+    if (wakeBtn) wakeBtn.addEventListener('click', toggleWakeLock);
+
+    // Restaurer la préférence anti-veille
+    try {
+        const saved = localStorage.getItem(WAKE_LOCK_PREF);
+        wakeLockEnabled = saved === '1';
+    } catch (e) {}
+
+    if (wakeLockEnabled) {
+        activateWakeLock().then(() => updateWakeStatus());
+    }
+
+    // Rendu initial
+    renderCombos();
+    renderChips('gender-chips', GENDER_OPTIONS, 'selectedGender');
+    renderChips('age-chips', AGE_OPTIONS, 'selectedAge');
+    renderChips('build-chips', BUILD_OPTIONS, 'selectedBuild');
+    renderChips('outfit-chips', OUTFIT_OPTIONS, 'selectedOutfit');
+    renderChips('location-chips', LOCATION_OPTIONS, 'selectedLocation');
+    renderChips('action-chips', ACTION_OPTIONS, 'selectedAction');
+    renderChips('light-chips', LIGHT_OPTIONS, 'selectedLight');
+    renderChips('mood-chips', MOOD_OPTIONS, 'selectedMood');
+    renderChips('style-chips', STYLE_OPTIONS, 'selectedStyle');
+    renderVariantCounts();
+
+    updateApiPanel();
+    updateWakeStatus();
+    updatePromptPreview();
+
+    log('Grok TikTok Studio prêt.');
+})();
+</script>
+
+</body>
+</html>
